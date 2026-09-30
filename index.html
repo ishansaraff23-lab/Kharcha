@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kharcha</title>
+<meta name="description" content="Log daily expenses, set monthly budgets and track your money.">
+<meta name="theme-color" content="#F1F4F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1311" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kharcha">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 id="title">Home</h1>
+    <div class="month" id="monthbar">
+      <button data-act="mprev" aria-label="Previous month"></button>
+      <span id="mlabel" class="num"></span>
+      <button data-act="mnext" aria-label="Next month"></button>
+    </div>
+  </header>
+  <main class="view" id="view"></main>
+</div>
+<button class="fab" data-act="add" aria-label="Add transaction" id="fab"></button>
+<nav class="nav"><div class="nav-in" id="nav"></div></nav>
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" hidden></div>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(console.error)); }
+</script>
+</body>
+</html>

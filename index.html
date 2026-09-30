@@ -19,11 +19,19 @@
 <body>
 <div class="app">
   <header class="top">
-    <h1 id="title">Home</h1>
-    <div class="month" id="monthbar">
-      <button data-act="mprev" aria-label="Previous month"></button>
-      <span id="mlabel" class="num"></span>
-      <button data-act="mnext" aria-label="Next month"></button>
+    <div class="top-r1">
+      <h1 id="title">Home</h1>
+      <span class="spacer"></span>
+      <button class="icb" data-act="search" id="b_search" aria-label="Search"></button>
+      <button class="icb" data-act="hide" id="b_hide" aria-label="Hide amounts"></button>
+    </div>
+    <div class="top-r2" id="toprow2">
+      <div class="month" id="monthbar">
+        <button data-act="mprev" aria-label="Previous"></button>
+        <span id="mlabel" class="num"></span>
+        <button data-act="mnext" aria-label="Next"></button>
+      </div>
+      <label class="chipf acctf" id="acctf"></label>
     </div>
   </header>
   <main class="view" id="view"></main>
@@ -31,8 +39,10 @@
 <button class="fab" data-act="add" aria-label="Add transaction" id="fab"></button>
 <nav class="nav"><div class="nav-in" id="nav"></div></nav>
 <div id="sheetRoot"></div>
+<div id="lockRoot"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="config.js"></script>
+<script src="icons.js"></script>
 <script src="supabase.js"></script>
 <script src="app.js"></script>
 <script>

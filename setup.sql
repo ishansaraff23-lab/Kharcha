@@ -10,6 +10,7 @@ create table if not exists public.txns (
   acct        text not null,
   to_acct     text,
   note        text not null default '',
+  labels      jsonb not null default '[]'::jsonb,
   date        date not null,
   created_ms  bigint,
   updated_at  timestamptz not null,
@@ -30,6 +31,7 @@ create table if not exists public.budgets (
 create table if not exists public.settings (
   user_id     uuid primary key default auth.uid() references auth.users on delete cascade,
   accounts    jsonb not null,
+  prefs       jsonb not null default '{}'::jsonb,
   updated_at  timestamptz not null,
   server_at   timestamptz not null default now()
 );

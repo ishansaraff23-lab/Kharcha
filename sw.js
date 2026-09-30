@@ -1,6 +1,6 @@
 // Kharcha service worker: keeps the app shell available offline.
 // Bump VERSION whenever you upload new app files.
-const VERSION = 'kharcha-v2';
+const VERSION = 'kharcha-v3';
 const SHELL = ['./','index.html','style.css','app.js','icons.js','config.js','supabase.js','manifest.webmanifest',
   'icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png','icons/favicon.png',
   'fonts/manrope-latin-400-normal.woff2','fonts/manrope-latin-500-normal.woff2','fonts/manrope-latin-600-normal.woff2',

@@ -140,7 +140,11 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
 
 /* sheet */
 .scrim{position:fixed;inset:0;z-index:20;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--card);width:100%;max-width:520px;border-radius:26px 26px 0 0;max-height:94%;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px);animation:up .22s ease-out}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:26px 26px 0 0;max-height:94%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0px);animation:up .22s ease-out}
+.sheet>*{flex:none}
+.sheet>.sh-mid,.sheet>.sh-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+body.sheet-open{overflow:hidden}
+.scrim{overscroll-behavior:contain}
 @keyframes up{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}.bar>i{transition:none}}
 .sh-head{display:flex;align-items:center;gap:10px;padding:14px 16px 6px}
@@ -165,7 +169,7 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .cat.on .ic{background:var(--c);color:#fff;box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--c)}
 .tr-row{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:12px}
 .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 16px 12px;border-top:1px solid var(--line)}
-.keys button{height:48px;border-radius:14px;background:var(--chip);font-size:21px;font-weight:700}
+.keys button{height:46px;border-radius:14px;background:var(--chip);font-size:21px;font-weight:700}
 .keys button:active{background:var(--line)}
 .keys .save{grid-column:1/-1;background:var(--accent);color:var(--accent-ink);font-size:16px;font-weight:800}
 .keys .save:disabled{opacity:.4}
@@ -233,3 +237,14 @@ img{max-width:100%}
 .keys span{display:block}
 body.hideamt .view .num,body.hideamt .view .big{filter:blur(8px)}
 @media (max-width:370px){.cats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tag svg{width:12px;height:12px;vertical-align:-2px;margin-right:2px}
+.sh-body>*{flex:none}
+#shmid .meta{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;margin:2px -16px 10px;padding:0 16px}
+#shmid .meta::-webkit-scrollbar{display:none}
+#shmid .meta>*{flex:none}
+@media (max-height:740px){
+  .amt{padding:4px 16px 2px}.amt .v{font-size:36px}
+  .keys{gap:5px;padding:6px 16px 8px}.keys button{height:40px;font-size:19px}
+  .keys .save{height:44px}
+  .sh-head{padding:10px 16px 4px}
+}

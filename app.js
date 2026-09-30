@@ -116,7 +116,12 @@ function budgetFor(ym){
   if(S.months[ym] && S.months[ym].budget) return {b:S.months[ym].budget, from:ym, inherited:false};
   const earlier = Object.keys(S.months).filter(k=>k<ym && S.months[k].budget).sort().pop();
   if(earlier) return {b:S.months[earlier].budget, from:earlier, inherited:true};
+  const later = Object.keys(S.months).filter(k=>k>ym && S.months[k].budget).sort()[0];
+  if(later) return {b:S.months[later].budget, from:later, inherited:true};
   return null;
+}
+const budgetTotal = b => b ? ((+b.total||0) || Object.values(b.cats||{}).reduce((x,v)=>x+(+v||0),0)) : 0;
+function putBudgetRaw(ym, b){ const r={ym, total:+b.total||0, cats:b.cats||{}, updated_at:nowIso()}; L.budgets[ym]=r; queue('budgets', ym, r);
 }
 function balances(){
   const bal={}; accounts().forEach(a=>bal[a.id]=Number(a.opening)||0);
@@ -155,7 +160,7 @@ function putTxnRaw(t){ const r={...t, labels:t.labels||[], updated_at:nowIso(), 
 function delTxnRaw(id){ const t=L.txns[id]; if(!t) return; const r={...t, updated_at:nowIso(), deleted:true}; L.txns[id]=r; queue('txns', id, r); }
 function putTxn(t){ putTxnRaw(t); commit(); }
 function delTxn(id){ delTxnRaw(id); commit(); }
-function putBudget(ym, b){ const r={ym, total:+b.total||0, cats:b.cats||{}, updated_at:nowIso()}; L.budgets[ym]=r; queue('budgets', ym, r); commit(); }
+function putBudget(ym, b){ putBudgetRaw(ym, b); commit(); }
 function putSettings(patch, silent){
   if(patch.accounts) L.accounts=patch.accounts;
   if(patch.prefs) L.prefs=patch.prefs;
@@ -230,7 +235,7 @@ async function syncNow(){
   if(!SB || !UID || flushing) return;
   if(!navigator.onLine){ S.sync={...S.sync, state:'offline'}; renderIfMore(); return; }
   flushing=true; S.sync={...S.sync, state:'syncing'};
-  try{ await flush(); await pull(); rebuild(); runRecurring(); await flush(); S.sync={state:'ok', at:Date.now(), err:null}; rebuild(); render(); if(SH && SH.kind!=='txn') rerenderSheet(); }
+  try{ await flush(); await pull(); rebuild(); runRecurring(); await flush(); S.sync={state:'ok', at:Date.now(), err:null}; rebuild(); render(); if(SH && ['search','cats','rules'].includes(SH.kind)) rerenderSheet(); }
   catch(e){
     console.error(e);
     const msg=(e&&e.message)||'Sync failed';
@@ -347,12 +352,12 @@ function spendCard(ym){
   const list=viewTxns(ym), tt=totals(list), bf=budgetFor(ym);
   let budgetHtml='';
   if(S.acct) budgetHtml=`<div class="sub" style="margin-top:8px">Showing ${esc(accById(S.acct).name)} only.</div>`;
-  else if(bf && bf.b.total>0){
-    const p=tt.exp/bf.b.total, left=bf.b.total-tt.exp;
+  else if(bf && budgetTotal(bf.b)>0){
+    const bt=budgetTotal(bf.b), p=tt.exp/bt, left=bt-tt.exp;
     let perDay='';
     if(ym===curYM() && left>0){ const dl=daysIn(ym)-new Date().getDate()+1; perDay=` · ${money(left/dl)}/day for ${dl} day${dl>1?'s':''}`; }
     budgetHtml = `<div class="bar ${barCls(p)}"><i style="width:${Math.min(100,p*100).toFixed(1)}%"></i></div>
-      <div class="sub num" style="margin-top:8px">${left>=0?`<b style="color:var(--ink)">${money(left)}</b> left of ${money(bf.b.total)}${perDay}`:`<b class="neg">${money(-left)} over</b> your ${money(bf.b.total)} budget`}</div>`;
+      <div class="sub num" style="margin-top:8px">${left>=0?`<b style="color:var(--ink)">${money(left)}</b> left of ${money(bt)}${perDay}`:`<b class="neg">${money(-left)} over</b> your ${money(bt)} budget`}</div>`;
   } else budgetHtml = `<div class="sub" style="margin-top:8px">No budget for ${ymLong(ym)}. <button data-act="tab" data-v="budgets" style="color:var(--accent);font-weight:800">Set one</button></div>`;
   return `<div class="card"><div class="label"><span>${ymLong(ym)} spending</span></div>
     <div class="big num">${tt.exp?'−':''}${money(tt.exp)}</div>${budgetHtml}
@@ -447,15 +452,16 @@ function vBudgets(){
   const b = bf ? bf.b : {total:0,cats:{}}; const cats=b.cats||{};
   const alloc=Object.values(cats).reduce((a,v)=>a+(+v||0),0);
   let head;
-  if(b.total>0){
-    const p=tt.exp/b.total, left=b.total-tt.exp;
-    head = `<div class="card"><div class="label"><span>Monthly budget · ${ymLong(ym)}</span><button class="setb" data-act="bud" data-v="__total">Edit</button></div>
-      <div class="big num">${money(tt.exp)} <span class="sub" style="font-size:16px;font-weight:700">of ${money(b.total)}</span></div>
+  const bt=budgetTotal(b);
+  if(bt>0){
+    const p=tt.exp/bt, left=bt-tt.exp;
+    head = `<div class="card"><div class="label"><span>Monthly budget · ${ymLong(ym)}</span><button class="setb" data-act="bud" data-v="__total">${b.total>0?'Edit':'Set total'}</button></div>
+      <div class="big num">${money(tt.exp)} <span class="sub" style="font-size:16px;font-weight:700">of ${money(bt)}${b.total>0?'':' (sum of categories)'}</span></div>
       <div class="bar ${barCls(p)}"><i style="width:${Math.min(100,p*100).toFixed(1)}%"></i></div>
       <div class="sub num" style="margin-top:8px">${left>=0?`${money(left)} left`:`<b class="neg">${money(-left)} over budget</b>`} · ${(p*100).toFixed(0)}% used</div>
-      <div class="sub num" style="margin-top:4px">Category budgets add up to ${money(alloc)}${alloc<b.total?` · ${money(b.total-alloc)} unassigned`:alloc>b.total?` · <span class="neg">${money(alloc-b.total)} more than the monthly budget</span>`:''}</div>
-      ${bf.inherited?`<div class="row" style="margin-top:12px;flex-wrap:wrap"><span class="tag">Carried over from ${ymLabel(bf.from)}</span><span class="spacer"></span><button class="btn sm ghost" data-act="keepbud">Keep for ${ymLabel(ym).slice(0,3)}</button></div>`:''}</div>`;
-  } else head = `<div class="card"><div class="label"><span>Monthly budget · ${ymLong(ym)}</span></div><div style="font-weight:800;font-size:18px;margin-top:6px">No budget set</div><div class="sub" style="margin:4px 0 14px">Set how much you plan to spend in ${ymLong(ym)}. Later months reuse it until you change it.</div><button class="btn" data-act="bud" data-v="__total">Set monthly budget</button></div>`;
+      ${b.total>0?`<div class="sub num" style="margin-top:4px">Category budgets add up to ${money(alloc)}${alloc<b.total?` · ${money(b.total-alloc)} unassigned`:alloc>b.total?` · <span class="neg">${money(alloc-b.total)} more than the monthly budget</span>`:''}</div>`:''}
+      <div class="row" style="margin-top:12px"><span class="tag">${ic('Repeat')} Repeats every month</span><span class="sub">${bf.inherited?`Same as ${ymLabel(bf.from)}`:''}</span></div></div>`;
+  } else head = `<div class="card"><div class="label"><span>Monthly budget · ${ymLong(ym)}</span></div><div style="font-weight:800;font-size:18px;margin-top:6px">No budget set</div><div class="sub" style="margin:4px 0 14px">Set it once and it repeats every month until you change it.</div><button class="btn" data-act="bud" data-v="__total">Set monthly budget</button></div>`;
   const rows = catsOf('expense',true).map(c=>({c,bud:+cats[c.id]||0,sp:spent[c.id]||0})).filter(r=>!r.c.hidden||r.bud||r.sp)
     .sort((a,b)=> (b.bud>0)-(a.bud>0) || b.sp-a.sp || a.c.ord-b.c.ord);
   const rowHtml = r=>{
@@ -536,11 +542,11 @@ async function doAuth(){
    ====================================================================== */
 let SH=null; const STACK=[];
 const root=()=>document.getElementById('sheetRoot');
-function sheet(inner, label, cls=''){ return `<div class="scrim" data-act="scrim"><div class="sheet ${cls}" role="dialog" aria-label="${label}">${inner}</div></div>`; }
+function sheet(inner, label, cls=''){ document.body.classList.add('sheet-open'); return `<div class="scrim" data-act="scrim"><div class="sheet ${cls}" role="dialog" aria-label="${label}">${inner}</div></div>`; }
 function head(title, sub, extra=''){ return `<div class="sh-head"><button class="xbtn" data-act="close" aria-label="Close">${ic(STACK.length?'ChevronLeft':'X')}</button><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${title}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>${extra}</div>`; }
 function openSheet(state, keep){ if(!keep) STACK.length=0; else if(SH) STACK.push(SH); SH=state; rerenderSheet(true); }
-function closeSheet(){ SH=null; root().innerHTML=''; const prev=STACK.pop(); if(prev){ SH=prev; rerenderSheet(true); } }
-function closeAll(){ STACK.length=0; SH=null; root().innerHTML=''; }
+function closeSheet(){ SH=null; root().innerHTML=''; document.body.classList.remove('sheet-open'); const prev=STACK.pop(); if(prev){ SH=prev; rerenderSheet(true); } }
+function closeAll(){ STACK.length=0; SH=null; root().innerHTML=''; document.body.classList.remove('sheet-open'); }
 function rerenderSheet(fresh){
   if(!SH) return;
   FRESH=!!fresh; try{ rerenderInner(); } finally{ FRESH=false; }
@@ -581,7 +587,7 @@ function renderTxnSheet(){
       ${s.mode==='edit'?`<button class="xbtn" data-act="dup" aria-label="Duplicate">${ic('Copy')}</button><button class="xbtn" data-act="del" aria-label="Delete" style="${s.confirmDel?'background:var(--neg);color:#fff':'color:var(--neg)'}">${ic('Trash2')}</button>`:''}</div>
     ${s.confirmDel?`<div class="sub" style="text-align:center;color:var(--neg);font-weight:700">Tap the bin again to delete this entry</div>`:''}
     <div class="amt"><small>${s.type.toUpperCase()} · INR</small><div class="v num ${s.amt?'':'zero'}" id="amtv">${fmtAmt(s.amt)}</div></div>
-    <div style="padding:0 16px">
+    <div class="sh-mid sh-scroll" id="shmid">
       <div class="meta">
         <label class="chipf">${ic('CalendarDays')}<span>${shortDay(s.date)}</span><input type="date" id="f_date" value="${s.date}" max="2100-12-31" aria-label="Date"></label>
         ${s.date!==todayS()?`<button class="chipf" data-act="dtoday">Today</button>`:`<button class="chipf" data-act="dyest">Yesterday</button>`}
@@ -590,8 +596,6 @@ function renderTxnSheet(){
         ${canRepeat?`<label class="chipf ${s.repeat!=='none'?'onc':''}">${ic('Repeat')}<span>${s.repeat==='none'?'Repeat':FREQ[s.repeat]}</span><select id="f_rep" aria-label="Repeat"><option value="none">Doesn’t repeat</option>${Object.entries(FREQ).map(([k,l])=>`<option value="${k}" ${s.repeat===k?'selected':''}>${l}</option>`).join('')}</select></label>`:`<button class="chipf onc" data-act="rules">${ic('Repeat')}<span>Scheduled</span></button>`}
         <button class="chipf ${s.labels.length?'onc':''}" data-act="lbltoggle">${ic('Tag')}<span>${s.labels.length?s.labels.map(l=>'#'+esc(l)).join(' '):'Label'}</span></button>
       </div>
-    </div>
-    <div class="sh-mid sh-scroll" id="shmid">
       <input class="note" id="f_note" placeholder="Add a note (optional)" value="${esc(s.note)}" maxlength="120" autocomplete="off">
       ${s.showLabels?`<div class="lblpanel"><div class="lblrow">${labelsAll.map(l=>`<button class="lchip ${s.labels.includes(l)?'on':''}" data-act="lbl" data-v="${esc(l)}">#${esc(l)}</button>`).join('')||'<span class="sub">No labels yet. Labels let you group entries across categories, e.g. #goa-trip or #office.</span>'}</div>
         <div class="row" style="gap:8px;margin-top:8px"><input class="note" id="f_lbl" placeholder="New label" maxlength="24" autocomplete="off" style="flex:1"><button class="btn sm" data-act="lbladd">Add</button></div></div>`:''}
@@ -599,7 +603,7 @@ function renderTxnSheet(){
         : `<div class="cats">${cats.map(c=>`<button class="cat ${s.cat===c.id?'on':''}" data-act="pcat" data-v="${c.id}" style="--c:${c.c}"><span class="ic">${ic(c.icon)}</span>${esc(c.name)}</button>`).join('')}<button class="cat" data-act="catnew" data-v="${s.type}" style="--c:var(--muted)"><span class="ic">${ic('Plus')}</span>New</button></div>`}
     </div>
     <div class="keys">${['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(k=>`<button data-act="key" data-v="${k}" class="num" aria-label="${k==='⌫'?'Delete digit':k}">${k==='⌫'?ic('Delete'):k}</button>`).join('')}
-      <button class="save" data-act="savetx" id="savebtn">Save</button></div>`, (s.mode==='add'?'Add':'Edit')+' entry');
+      <button class="save" data-act="savetx" id="savebtn">Save</button></div>`, (s.mode==='add'?'Add':'Edit')+' entry', 'tall');
   keepScroll(()=>{ root().innerHTML=html; });
   updSave();
 }
@@ -628,7 +632,7 @@ function budgetAlert(t){
     if(after>budget && before<=budget) return `${name} is now ${money(after-budget)} over budget`;
     if(after>=.8*budget && before<.8*budget) return `${name}: ${Math.round(after/budget*100)}% of budget used`;
     return ''; };
-  return check(spentCat,cb,c.name) || check(spentAll,+bf.b.total||0,'Monthly budget');
+  return check(spentCat,cb,c.name) || check(spentAll,budgetTotal(bf.b),'Monthly budget');
 }
 function saveTxn(){
   if(!canSave()) return;
@@ -667,17 +671,31 @@ function renderBudget(){
     <form class="sh-body" id="budform">
       <div class="field"><label for="f_bud">BUDGET FOR ${ymLong(ym).toUpperCase()} (₹)</label><input class="hero num" id="f_bud" inputmode="decimal" autocomplete="off" value="${cur||''}" placeholder="0"></div>
       ${suggest.length?`<div class="hint">${suggest.map(([v,l])=>`<button type="button" class="chipf" data-act="bsug" data-v="${v}">${l}</button>`).join('')}</div>`:''}
-      <div class="sub">${isTotal?'Applies to this month and carries forward to later months until you change it.':'Applies to '+ymLong(ym)+' and later months that haven’t been set.'}</div>
-      <button class="btn wide" type="submit">Save budget</button>
-      ${cur?`<button class="btn wide danger" type="button" data-act="bclear">Remove ${isTotal?'monthly':'this'} budget</button>`:''}
+      <div class="sub">Budgets repeat every month. Change it for ${ymLong(ym)} onwards, or just for ${ymLong(ym)} if this month is unusual.</div>
+      <button class="btn wide" type="submit" data-scope="forward">Save for ${MONTHS[+ym.slice(5)-1]} and every month after</button>
+      <button class="btn wide ghost" type="button" data-act="bonly">Only for ${ymLong(ym)}</button>
+      ${cur?`<button class="btn wide danger" type="button" data-act="bclear">Remove ${isTotal?'monthly':'this'} budget from ${MONTHS[+ym.slice(5)-1]} on</button>`:''}
     </form>`, 'Budget');
   const inp=document.getElementById('f_bud'); setTimeout(()=>{ try{inp.focus(); inp.select();}catch(e){} },60);
 }
-function saveBudget(val){
-  const ym=S.ym, catId=SH.catId, bf=budgetFor(ym);
-  const base = clone(bf?bf.b:{total:0,cats:{}}); if(!base.cats) base.cats={};
-  if(catId==='__total') base.total = val; else { if(val>0) base.cats[catId]=val; else delete base.cats[catId]; }
-  closeSheet(); putBudget(ym, base); toast(val>0?`Budget saved for ${ymLabel(ym)}`:'Budget removed');
+function applyBudgetChange(b, catId, val){
+  const x=clone(b||{total:0,cats:{}}); if(!x.cats) x.cats={};
+  if(catId==='__total') x.total=val; else { if(val>0) x.cats[catId]=val; else delete x.cats[catId]; }
+  return x;
+}
+function saveBudget(val, scope){
+  const ym=S.ym, catId=SH.catId, bf=budgetFor(ym), before=bf?clone(bf.b):null;
+  putBudgetRaw(ym, applyBudgetChange(before, catId, val));
+  if(scope==='only'){
+    // keep next month on the old plan so this one-off change doesn't carry forward
+    const nm=addMonth(ym,1);
+    if(before && !L.budgets[nm]) putBudgetRaw(nm, before);
+  } else {
+    // carry the change into later months that were set separately
+    Object.keys(L.budgets).filter(k=>k>ym).forEach(k=>putBudgetRaw(k, applyBudgetChange(L.budgets[k], catId, val)));
+  }
+  closeSheet(); commit();
+  toast(val>0 ? (scope==='only'?`Budget changed for ${ymLabel(ym)} only`:`Budget saved from ${ymLabel(ym)} onwards`) : 'Budget removed');
 }
 
 /* ---------- accounts ---------- */
@@ -947,8 +965,8 @@ document.addEventListener('click', e=>{
     case 'catnew': openCatEdit('__new', v); break;
     case 'bud': openBudget(v); break;
     case 'bsug': document.getElementById('f_bud').value=v; break;
-    case 'bclear': saveBudget(0); break;
-    case 'keepbud': { const bf=budgetFor(S.ym); if(bf){ putBudget(S.ym, clone(bf.b)); toast(`Budget saved for ${ymLabel(S.ym)}`);} break; }
+    case 'bclear': saveBudget(0,'forward'); break;
+    case 'bonly': { const v=num(document.getElementById('f_bud').value); saveBudget(v>0?Math.round(v*100)/100:0,'only'); break; }
     case 'acc': openAccount(el.dataset.id); break;
     case 'adel': {
       if(!SH.confirmDel){ SH.confirmDel=true; rerenderSheet(); break; }
@@ -1004,7 +1022,7 @@ document.addEventListener('submit', e=>{
   e.preventDefault();
   const id=e.target.id;
   if(id==='authform'){ doAuth(); return; }
-  if(id==='budform'){ const v=num(document.getElementById('f_bud').value); saveBudget(v>0?Math.round(v*100)/100:0); }
+  if(id==='budform'){ const v=num(document.getElementById('f_bud').value); saveBudget(v>0?Math.round(v*100)/100:0,'forward'); }
   if(id==='accform'){
     const name=document.getElementById('f_an').value.trim(); if(!name){ toast('Give the account a name.'); return; }
     const kind=document.getElementById('f_ak').value; const opening=num(document.getElementById('f_ao').value);
